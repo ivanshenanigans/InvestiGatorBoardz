@@ -5,7 +5,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Upload, AlertTriangle } from "lucide-react";
 import {
-  useCreateProfile, useListProfiles, useListCustomBanners,
+  useCreateProfile, useListCustomBanners,
   getListProfilesQueryKey, CustomBannerRecord,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -81,9 +81,8 @@ export default function Creator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
-  const { data: existingProfiles } = useListProfiles();
   const { data: customBanners = [] } = useListCustomBanners();
-  const isFull = (existingProfiles?.length ?? 0) >= 2;
+  const isFull = false;
 
   const createProfile = useCreateProfile();
 

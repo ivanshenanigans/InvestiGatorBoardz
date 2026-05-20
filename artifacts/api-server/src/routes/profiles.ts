@@ -19,12 +19,6 @@ router.get("/profiles", async (req, res) => {
 
 router.post("/profiles", async (req, res) => {
   try {
-    const count = await db.$count(profilesTable);
-    if (count >= 2) {
-      res.status(409).json({ error: "Profile limit reached. Maximum 2 profiles allowed." });
-      return;
-    }
-
     const { username, displayName, favoriteColor, bio, imageData, ageGroup, banner } = req.body;
 
     if (!username || !displayName || !favoriteColor || !ageGroup) {
