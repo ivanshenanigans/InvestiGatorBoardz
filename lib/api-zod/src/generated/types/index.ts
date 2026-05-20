@@ -11,6 +11,8 @@ export * from './bulletinInput';
 export * from './bulletinRecord';
 export * from './customBadgeInput';
 export * from './customBadgeRecord';
+export * from './customBannerInput';
+export * from './customBannerRecord';
 export * from './customSkinInput';
 export * from './customSkinRecord';
 export * from './eventInput';

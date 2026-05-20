@@ -5,6 +5,7 @@ import eventsRouter from "./events";
 import bulletinRouter from "./bulletin";
 import customSkinsRouter from "./customSkins";
 import customBadgesRouter from "./customBadges";
+import customBannersRouter from "./customBanners";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(eventsRouter);
 router.use(bulletinRouter);
 router.use(customSkinsRouter);
 router.use(customBadgesRouter);
+router.use(customBannersRouter);
 
 export default router;

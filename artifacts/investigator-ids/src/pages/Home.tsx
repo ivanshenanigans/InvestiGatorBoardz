@@ -1,11 +1,15 @@
 import { useLocation, Link } from "wouter";
 import { Plus, Skull } from "lucide-react";
-import { useListProfiles, useListCustomBadges, ProfileRecord, CustomBadgeRecord } from "@workspace/api-client-react";
+import {
+  useListProfiles, useListCustomBadges, useListCustomBanners,
+  ProfileRecord, CustomBadgeRecord, CustomBannerRecord,
+} from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getSkinClass } from "@/lib/skins";
 import { getBadgeRarity } from "@/lib/badges";
-import { getBannerStyle } from "@/lib/banners";
+import { getBannerCss } from "@/lib/banners";
+import { getBannerPatternStyle } from "@/lib/bannerPatterns";
 
 function renderBadge(badge: string, customBadges: CustomBadgeRecord[]) {
   const custom = customBadges.find(b => b.name === badge);
@@ -24,8 +28,30 @@ function renderBadge(badge: string, customBadges: CustomBadgeRecord[]) {
   return <span key={badge} className={`badge-${getBadgeRarity(badge)}`}>{badge}</span>;
 }
 
-function ProfileCard({ profile, customBadges }: { profile: ProfileRecord; customBadges: CustomBadgeRecord[] }) {
-  const bannerStyle = getBannerStyle(profile.banner);
+function resolveBannerCss(
+  banner: string | null | undefined,
+  customBanners: CustomBannerRecord[],
+): Record<string, string> | null {
+  if (!banner || banner === "none") return null;
+  if (banner.startsWith("custom:")) {
+    const id = parseInt(banner.slice(7), 10);
+    const cb = customBanners.find(b => b.id === id);
+    return cb ? getBannerPatternStyle(cb.patternType, cb.primaryColor, cb.secondaryColor, cb.bgColor) : null;
+  }
+  const css = getBannerCss(banner);
+  return Object.keys(css).length > 0 ? css : null;
+}
+
+function ProfileCard({
+  profile,
+  customBadges,
+  customBanners,
+}: {
+  profile: ProfileRecord;
+  customBadges: CustomBadgeRecord[];
+  customBanners: CustomBannerRecord[];
+}) {
+  const bannerCss = resolveBannerCss(profile.banner, customBanners);
   return (
     <Card
       data-testid={`card-profile-${profile.id}`}
@@ -35,11 +61,10 @@ function ProfileCard({ profile, customBadges }: { profile: ProfileRecord; custom
         ID: {String(profile.id).padStart(4, "0")}
       </div>
 
-      {/* Banner strip */}
-      {bannerStyle ? (
+      {bannerCss ? (
         <div
           className="id-banner id-banner-shimmer"
-          style={{ background: bannerStyle }}
+          style={bannerCss as React.CSSProperties}
         />
       ) : (
         <div className="h-2 bg-primary/20" />
@@ -47,8 +72,7 @@ function ProfileCard({ profile, customBadges }: { profile: ProfileRecord; custom
 
       <CardContent className="p-6 pt-4">
         <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
-          {/* Avatar overlaps banner when banner is present (Discord-style) */}
-          <div className={bannerStyle ? "-mt-10 z-10 relative flex-shrink-0" : "flex-shrink-0"}>
+          <div className={bannerCss ? "-mt-10 z-10 relative flex-shrink-0" : "flex-shrink-0"}>
             <Avatar className="w-32 h-32 rounded-none border-2 border-primary/50 shadow-[0_0_15px_rgba(139,0,0,0.3)]">
               <AvatarImage src={profile.imageData} alt={profile.username} className="object-cover" />
               <AvatarFallback className="rounded-none bg-muted text-4xl text-muted-foreground font-serif">?</AvatarFallback>
@@ -91,6 +115,7 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const { data: profiles, isLoading } = useListProfiles();
   const { data: customBadges = [] } = useListCustomBadges();
+  const { data: customBanners = [] } = useListCustomBanners();
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
@@ -138,7 +163,7 @@ export default function Home() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {profiles.map(profile => (
-            <ProfileCard key={profile.id} profile={profile} customBadges={customBadges} />
+            <ProfileCard key={profile.id} profile={profile} customBadges={customBadges} customBanners={customBanners} />
           ))}
         </div>
       )}

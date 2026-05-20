@@ -214,6 +214,44 @@ export const UpdateBulletinItemResponse = zod.object({
 
 
 /**
+ * @summary List all custom banners
+ */
+export const ListCustomBannersResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "patternType": zod.string(),
+  "primaryColor": zod.string(),
+  "secondaryColor": zod.string(),
+  "bgColor": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListCustomBannersResponse = zod.array(ListCustomBannersResponseItem)
+
+
+/**
+ * @summary Create a custom banner (moderator)
+ */
+
+
+
+export const CreateCustomBannerBody = zod.object({
+  "name": zod.string().min(1),
+  "patternType": zod.string(),
+  "primaryColor": zod.string(),
+  "secondaryColor": zod.string(),
+  "bgColor": zod.string()
+})
+
+
+/**
+ * @summary Delete a custom banner (moderator)
+ */
+export const DeleteCustomBannerParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary List all custom badges
  */
 export const ListCustomBadgesResponseItem = zod.object({

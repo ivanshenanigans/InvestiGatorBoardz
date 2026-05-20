@@ -76,3 +76,11 @@ export function getBannerStyle(banner: string | null | undefined): string {
   }
   return banner;
 }
+
+export function getBannerCss(banner: string | null | undefined): Record<string, string> {
+  if (!banner || banner === "none" || banner.startsWith("custom:")) return {};
+  if (banner.startsWith("#")) return { background: banner, backgroundColor: banner };
+  const preset = BANNER_PRESETS.find(p => p.id === banner);
+  if (preset?.gradient) return { background: preset.gradient };
+  return {};
+}

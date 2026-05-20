@@ -20,6 +20,8 @@ tags:
     description: Custom skin operations
   - name: customBadges
     description: Custom badge operations
+  - name: customBanners
+    description: Custom banner operations
 paths:
   /healthz:
     get:
@@ -274,6 +276,59 @@ paths:
               schema:
                 $ref: "#/components/schemas/BulletinRecord"
 
+  /custom-banners:
+    get:
+      operationId: listCustomBanners
+      tags: [customBanners]
+      summary: List all custom banners
+      responses:
+        "200":
+          description: List of custom banners
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomBannerRecord"
+    post:
+      operationId: createCustomBanner
+      tags: [customBanners]
+      summary: Create a custom banner (moderator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomBannerInput"
+      responses:
+        "201":
+          description: Created banner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomBannerRecord"
+
+  /custom-banners/{id}:
+    delete:
+      operationId: deleteCustomBanner
+      tags: [customBanners]
+      summary: Delete a custom banner (moderator)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   /custom-badges:
     get:
       operationId: listCustomBadges
@@ -520,6 +575,41 @@ components:
         url:
           type: string
         sortOrder:
+          type: string
+
+    CustomBannerRecord:
+      type: object
+      required: [id, name, patternType, primaryColor, secondaryColor, bgColor, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        patternType:
+          type: string
+        primaryColor:
+          type: string
+        secondaryColor:
+          type: string
+        bgColor:
+          type: string
+        createdAt:
+          type: string
+
+    CustomBannerInput:
+      type: object
+      required: [name, patternType, primaryColor, secondaryColor, bgColor]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        patternType:
+          type: string
+        primaryColor:
+          type: string
+        secondaryColor:
+          type: string
+        bgColor:
           type: string
 
     CustomBadgeRecord:

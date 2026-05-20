@@ -87,6 +87,25 @@ export interface BulletinInput {
   sortOrder?: string;
 }
 
+export interface CustomBannerRecord {
+  id: number;
+  name: string;
+  patternType: string;
+  primaryColor: string;
+  secondaryColor: string;
+  bgColor: string;
+  createdAt: string;
+}
+
+export interface CustomBannerInput {
+  /** @minLength 1 */
+  name: string;
+  patternType: string;
+  primaryColor: string;
+  secondaryColor: string;
+  bgColor: string;
+}
+
 export interface CustomBadgeRecord {
   id: number;
   name: string;

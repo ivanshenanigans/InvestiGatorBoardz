@@ -7,13 +7,16 @@ import {
   useListBulletin, useCreateBulletinItem, useDeleteBulletinItem, useUpdateBulletinItem,
   useListCustomSkins, useCreateCustomSkin, useDeleteCustomSkin,
   useListCustomBadges, useCreateCustomBadge, useDeleteCustomBadge,
+  useListCustomBanners, useCreateCustomBanner, useDeleteCustomBanner,
   getListProfilesQueryKey, getListEventsQueryKey, getListBulletinQueryKey,
-  getListCustomSkinsQueryKey, getListCustomBadgesQueryKey,
-  ProfileRecord, EventRecord, BulletinRecord, CustomSkinRecord, CustomBadgeRecord,
+  getListCustomSkinsQueryKey, getListCustomBadgesQueryKey, getListCustomBannersQueryKey,
+  ProfileRecord, EventRecord, BulletinRecord, CustomSkinRecord, CustomBadgeRecord, CustomBannerRecord,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ALL_SKINS } from "@/lib/skins";
 import { ALL_BADGES } from "@/lib/badges";
+import { BANNER_PRESETS } from "@/lib/banners";
+import { getBannerPatternStyle, BANNER_PATTERN_TYPES } from "@/lib/bannerPatterns";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,6 +153,69 @@ function SkinRow({ profile, onUpdated, customSkins }: { profile: ProfileRecord; 
         </Select>
         <Button onClick={() => update.mutate({ id: profile.id, data: { skin: selected } }, { onSuccess: onUpdated })}
           disabled={update.isPending} className="font-mono bg-primary hover:bg-primary/80 text-primary-foreground whitespace-nowrap">
+          {update.isPending ? "..." : "APPLY"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function BannerRow({ profile, onUpdated, customBanners }: { profile: ProfileRecord; onUpdated: () => void; customBanners: CustomBannerRecord[] }) {
+  const [selected, setSelected] = useState(profile.banner || "none");
+  const update = useUpdateProfile();
+  const currentCss: React.CSSProperties = (() => {
+    if (!selected || selected === "none") return {};
+    if (selected.startsWith("custom:")) {
+      const id = parseInt(selected.slice(7), 10);
+      const cb = customBanners.find(b => b.id === id);
+      return cb ? getBannerPatternStyle(cb.patternType, cb.primaryColor, cb.secondaryColor, cb.bgColor) as React.CSSProperties : {};
+    }
+    const preset = BANNER_PRESETS.find(p => p.id === selected);
+    if (preset?.gradient) return { background: preset.gradient };
+    if (selected.startsWith("#")) return { background: selected };
+    return {};
+  })();
+  return (
+    <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-card/50 border border-border gap-4">
+      <div className="font-mono w-48 flex-shrink-0 truncate">
+        <div className="font-bold">{profile.displayName}</div>
+        <div className="text-xs text-muted-foreground">@{profile.username}</div>
+      </div>
+      <div className="flex-1 flex gap-3 items-center">
+        <div className="w-20 h-8 border border-border/50 flex-shrink-0 overflow-hidden" style={currentCss} />
+        <Select value={selected} onValueChange={setSelected}>
+          <SelectTrigger className="font-mono bg-background flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="font-mono bg-card">
+            <SelectGroup>
+              <SelectLabel className="text-muted-foreground text-[10px]">NONE</SelectLabel>
+              <SelectItem value="none">No Banner</SelectItem>
+            </SelectGroup>
+            <SelectGroup className="mt-1">
+              <SelectLabel className="text-primary border-b border-border text-[10px]">PRESETS</SelectLabel>
+              {BANNER_PRESETS.filter(p => p.id !== "none").map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+              ))}
+            </SelectGroup>
+            {customBanners.length > 0 && (
+              <SelectGroup className="mt-1">
+                <SelectLabel className="text-primary border-b border-border text-[10px]">CUSTOM PATTERNS</SelectLabel>
+                {customBanners.map(b => (
+                  <SelectItem key={b.id} value={`custom:${b.id}`}>{b.name}</SelectItem>
+                ))}
+              </SelectGroup>
+            )}
+          </SelectContent>
+        </Select>
+        <Button
+          onClick={() => update.mutate(
+            { id: profile.id, data: { banner: selected === "none" ? undefined : selected } },
+            { onSuccess: onUpdated }
+          )}
+          disabled={update.isPending}
+          className="font-mono bg-primary hover:bg-primary/80 text-primary-foreground whitespace-nowrap flex-shrink-0"
+        >
           {update.isPending ? "..." : "APPLY"}
         </Button>
       </div>
@@ -706,6 +772,149 @@ function BadgeMakerSection({ refresh }: { refresh: () => void }) {
   );
 }
 
+function BannerPreviewStrip({ patternType, primaryColor, secondaryColor, bgColor }: {
+  patternType: string; primaryColor: string; secondaryColor: string; bgColor: string;
+}) {
+  const css = getBannerPatternStyle(patternType, primaryColor, secondaryColor, bgColor);
+  return <div className="w-full h-16 border border-border/50" style={css as React.CSSProperties} />;
+}
+
+function CustomBannerMakerSection({ refresh }: { refresh: () => void }) {
+  const { data: customBanners, isLoading } = useListCustomBanners();
+  const create = useCreateCustomBanner();
+  const del = useDeleteCustomBanner();
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [patternType, setPatternType] = useState("skulls");
+  const [primaryColor, setPrimaryColor] = useState("#ff0000");
+  const [secondaryColor, setSecondaryColor] = useState("#8b0000");
+  const [bgColor, setBgColor] = useState("#0a0000");
+
+  const resetForm = () => {
+    setName(""); setPatternType("skulls"); setPrimaryColor("#ff0000"); setSecondaryColor("#8b0000"); setBgColor("#0a0000"); setAdding(false);
+  };
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+    create.mutate(
+      { data: { name, patternType, primaryColor, secondaryColor, bgColor } },
+      { onSuccess: () => { resetForm(); refresh(); } }
+    );
+  };
+
+  return (
+    <section className="space-y-6">
+      <SectionHeader>SECTION 8: CUSTOM BANNER MAKER</SectionHeader>
+      <p className="font-mono text-xs text-muted-foreground/70 uppercase tracking-wider">
+        Design wallpaper-style banner patterns. Assign them to subjects via the Banner section.
+      </p>
+      {isLoading ? <p className="font-mono text-muted-foreground text-sm animate-pulse">LOADING...</p> : null}
+      <div className="grid gap-4">
+        {(customBanners ?? []).map((banner: CustomBannerRecord) => {
+          const css = getBannerPatternStyle(banner.patternType, banner.primaryColor, banner.secondaryColor, banner.bgColor);
+          return (
+            <div key={banner.id} className="flex items-center justify-between p-4 bg-card/50 border border-border gap-4">
+              <div className="w-32 h-10 flex-shrink-0 border border-border/50 overflow-hidden" style={css as React.CSSProperties} />
+              <div className="font-mono flex-1 min-w-0 px-2">
+                <div className="font-bold truncate">{banner.name}</div>
+                <div className="text-xs text-muted-foreground capitalize">{banner.patternType} · {banner.primaryColor}</div>
+              </div>
+              <Button variant="destructive" size="sm" className="font-mono text-xs flex-shrink-0"
+                onClick={() => del.mutate({ id: banner.id }, { onSuccess: refresh })}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
+          );
+        })}
+        {(customBanners ?? []).length === 0 && !isLoading && (
+          <p className="font-mono text-muted-foreground text-sm">NO CUSTOM BANNERS CREATED YET.</p>
+        )}
+      </div>
+      {adding ? (
+        <div className="p-6 border border-primary/30 bg-card/50 space-y-6">
+          <h3 className="font-mono text-sm text-primary uppercase">DESIGN NEW BANNER</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div>
+                <label className="font-mono text-xs uppercase text-primary block mb-1">Banner Name</label>
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="BLOOD SKULLS"
+                  className="font-mono bg-background border-border" />
+              </div>
+              <div>
+                <label className="font-mono text-xs uppercase text-primary block mb-2">
+                  Pattern Type
+                </label>
+                <div className="grid grid-cols-2 gap-1.5 max-h-60 overflow-y-auto">
+                  {BANNER_PATTERN_TYPES.map(pt => (
+                    <button key={pt.id} type="button" onClick={() => setPatternType(pt.id)}
+                      className={`text-left text-[11px] font-mono px-3 py-2 border transition-colors ${
+                        patternType === pt.id
+                          ? "border-primary text-primary bg-primary/10"
+                          : "border-border/40 text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                      }`}>
+                      {pt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="font-mono text-[10px] uppercase text-primary block mb-1">Primary</label>
+                  <div className="flex gap-1.5 items-center">
+                    <input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)}
+                      className="w-8 h-8 p-0.5 bg-background border border-border cursor-pointer" />
+                    <span className="font-mono text-[10px] text-muted-foreground">{primaryColor}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="font-mono text-[10px] uppercase text-primary block mb-1">Secondary</label>
+                  <div className="flex gap-1.5 items-center">
+                    <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)}
+                      className="w-8 h-8 p-0.5 bg-background border border-border cursor-pointer" />
+                    <span className="font-mono text-[10px] text-muted-foreground">{secondaryColor}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="font-mono text-[10px] uppercase text-primary block mb-1">Background</label>
+                  <div className="flex gap-1.5 items-center">
+                    <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)}
+                      className="w-8 h-8 p-0.5 bg-background border border-border cursor-pointer" />
+                    <span className="font-mono text-[10px] text-muted-foreground">{bgColor}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="font-mono text-xs uppercase text-primary">Live Preview</div>
+              <div className="border border-border/30 bg-background/50 overflow-hidden">
+                <BannerPreviewStrip patternType={patternType} primaryColor={primaryColor}
+                  secondaryColor={secondaryColor} bgColor={bgColor} />
+              </div>
+              <div className="p-4 border border-border/20 bg-card/30 font-mono text-xs text-muted-foreground space-y-1">
+                <div className="text-primary/70 uppercase mb-2">Color Guide</div>
+                <div><span className="text-foreground">Primary</span> — Main pattern / icon color</div>
+                <div><span className="text-foreground">Secondary</span> — Accent glyph color</div>
+                <div><span className="text-foreground">Background</span> — Banner background fill</div>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button onClick={handleSubmit} disabled={create.isPending || !name.trim()}
+              className="font-mono bg-primary hover:bg-primary/80">
+              {create.isPending ? "CREATING..." : "CREATE BANNER"}
+            </Button>
+            <Button variant="outline" onClick={resetForm} className="font-mono">CANCEL</Button>
+          </div>
+        </div>
+      ) : (
+        <Button onClick={() => setAdding(true)} className="font-mono bg-card border border-primary/40 text-primary hover:bg-primary/10">
+          <Plus className="w-4 h-4 mr-2" /> DESIGN NEW BANNER
+        </Button>
+      )}
+    </section>
+  );
+}
+
 export default function Moderator() {
   const [, setLocation] = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -722,12 +931,16 @@ export default function Moderator() {
   const { data: customBadgesList } = useListCustomBadges({
     query: { enabled: isAuthenticated, queryKey: getListCustomBadgesQueryKey() },
   });
+  const { data: customBanners } = useListCustomBanners({
+    query: { enabled: isAuthenticated, queryKey: getListCustomBannersQueryKey() },
+  });
 
   const refreshProfiles = () => queryClient.invalidateQueries({ queryKey: getListProfilesQueryKey() });
   const refreshEvents = () => queryClient.invalidateQueries({ queryKey: getListEventsQueryKey() });
   const refreshBulletin = () => queryClient.invalidateQueries({ queryKey: getListBulletinQueryKey() });
   const refreshSkins = () => queryClient.invalidateQueries({ queryKey: getListCustomSkinsQueryKey() });
   const refreshBadges = () => queryClient.invalidateQueries({ queryKey: getListCustomBadgesQueryKey() });
+  const refreshBanners = () => queryClient.invalidateQueries({ queryKey: getListCustomBannersQueryKey() });
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -796,10 +1009,21 @@ export default function Moderator() {
               : <div className="grid gap-6">{profiles.map(p => <BadgeRow key={p.id} profile={p} onUpdated={refreshProfiles} customBadgesList={customBadgesList ?? []} />)}</div>}
           </section>
 
+          <section className="space-y-6">
+            <SectionHeader>SECTION 4: ASSIGN BANNER</SectionHeader>
+            <p className="font-mono text-xs text-muted-foreground/70 uppercase tracking-wider">
+              Set the banner displayed at the top of each subject&apos;s ID card.
+            </p>
+            {!profiles || profiles.length === 0
+              ? <p className="font-mono text-muted-foreground text-sm">NO SUBJECTS ON FILE.</p>
+              : <div className="grid gap-4">{profiles.map(p => <BannerRow key={p.id} profile={p} onUpdated={refreshProfiles} customBanners={customBanners ?? []} />)}</div>}
+          </section>
+
           <EventsSection refresh={refreshEvents} />
           <BulletinSection refresh={refreshBulletin} />
           <SkinMakerSection refresh={refreshSkins} />
           <BadgeMakerSection refresh={refreshBadges} />
+          <CustomBannerMakerSection refresh={refreshBanners} />
         </div>
       )}
     </div>
