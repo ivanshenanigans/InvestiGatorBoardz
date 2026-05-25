@@ -23,4 +23,5 @@ export interface ProfileInput {
   imageData: string;
   ageGroup: string;
   banner?: string;
+  traits?: string[];
 }

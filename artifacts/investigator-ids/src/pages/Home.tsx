@@ -1,8 +1,8 @@
 import { useLocation, Link } from "wouter";
-import { Plus, Skull } from "lucide-react";
+import { Plus, Skull, Pencil } from "lucide-react";
 import {
-  useListProfiles, useListCustomBadges, useListCustomBanners,
-  ProfileRecord, CustomBadgeRecord, CustomBannerRecord,
+  useListProfiles, useListCustomBadges, useListCustomBanners, useListMaps,
+  ProfileRecord, CustomBadgeRecord, CustomBannerRecord, MapRecord,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,6 +10,7 @@ import { getSkinClass } from "@/lib/skins";
 import { getBadgeRarity } from "@/lib/badges";
 import { getBannerCss } from "@/lib/banners";
 import { getBannerPatternStyle } from "@/lib/bannerPatterns";
+import { useAuth } from "@/contexts/AuthContext";
 
 function renderBadge(badge: string, customBadges: CustomBadgeRecord[]) {
   const custom = customBadges.find(b => b.name === badge);
@@ -42,21 +43,50 @@ function resolveBannerCss(
   return Object.keys(css).length > 0 ? css : null;
 }
 
+function getUserLocation(userId: number | null | undefined, maps: MapRecord[]): string | null {
+  if (!userId) return null;
+  for (const m of maps) {
+    for (const p of m.pinpoints) {
+      if (p.residents.some((r: { userId: number }) => r.userId === userId)) {
+        return `${p.name} — ${m.name}`;
+      }
+    }
+  }
+  return null;
+}
+
 function ProfileCard({
   profile,
   customBadges,
   customBanners,
+  maps,
+  isOwner,
 }: {
   profile: ProfileRecord;
   customBadges: CustomBadgeRecord[];
   customBanners: CustomBannerRecord[];
+  maps: MapRecord[];
+  isOwner: boolean;
 }) {
+  const [, setLocation] = useLocation();
   const bannerCss = resolveBannerCss(profile.banner, customBanners);
+  const location = getUserLocation(profile.userId, maps);
+
   return (
     <Card
       data-testid={`card-profile-${profile.id}`}
       className={`id-card overflow-hidden border-2 bg-card/80 backdrop-blur relative ${getSkinClass(profile.skin || "Red")}`}
     >
+      {isOwner && (
+        <button
+          onClick={() => setLocation(`/edit/${profile.id}`)}
+          className="absolute top-10 right-2 z-20 w-7 h-7 flex items-center justify-center border border-primary/40 bg-background/70 text-primary/60 hover:text-primary hover:border-primary transition-all"
+          title="Edit your profile"
+        >
+          <Pencil className="w-3 h-3" />
+        </button>
+      )}
+
       <div className="absolute top-0 right-0 p-2 text-xs font-mono text-muted-foreground border-b border-l border-primary/20 bg-background/50 z-10">
         ID: {String(profile.id).padStart(4, "0")}
       </div>
@@ -98,6 +128,21 @@ function ProfileCard({
                 {profile.bio ? `"${profile.bio}"` : ""}
               </p>
             </div>
+            {profile.traits && profile.traits.length > 0 && (
+              <div>
+                <div className="text-xs text-primary/70 uppercase tracking-wider mb-1">Traits</div>
+                <div className="flex flex-wrap gap-1">
+                  {profile.traits.map(t => (
+                    <span key={t} className="text-xs border border-primary/20 px-1.5 py-0.5 text-primary/60">{t}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {location && (
+              <div className="text-xs text-green-400/80 font-mono flex items-center gap-1">
+                <span>⌂</span> {location}
+              </div>
+            )}
             {profile.badges && profile.badges.length > 0 && (
               <div className="flex flex-wrap gap-1 pt-1">
                 {profile.badges.map(badge => renderBadge(badge, customBadges))}
@@ -113,9 +158,11 @@ function ProfileCard({
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const { user, logout } = useAuth();
   const { data: profiles, isLoading } = useListProfiles();
   const { data: customBadges = [] } = useListCustomBadges();
   const { data: customBanners = [] } = useListCustomBanners();
+  const { data: maps = [] } = useListMaps();
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
@@ -129,6 +176,23 @@ export default function Home() {
         <p className="text-xl md:text-2xl text-muted-foreground font-mono uppercase tracking-widest border-y border-border py-2 inline-block">
           The profiles made by other users
         </p>
+
+        {user && (
+          <div className="flex items-center justify-center gap-3 pt-1">
+            <span className="text-xs font-mono text-primary/60">
+              {user.robloxUsername}
+              {user.status && (
+                <span className="ml-2 text-muted-foreground/70 italic">"{user.status}"</span>
+              )}
+            </span>
+            <button
+              onClick={logout}
+              className="text-xs font-mono text-muted-foreground/50 hover:text-red-500 transition-colors uppercase tracking-wider"
+            >
+              [LOG OUT]
+            </button>
+          </div>
+        )}
       </header>
 
       <nav className="flex justify-center gap-3 mb-12 flex-wrap">
@@ -145,6 +209,12 @@ export default function Home() {
           data-testid="link-bulletin-board"
         >
           BULLETIN BOARD
+        </Link>
+        <Link
+          href="/map"
+          className="px-5 py-2 font-mono text-sm uppercase tracking-widest border border-primary/40 text-primary/80 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
+        >
+          THE MAP
         </Link>
       </nav>
 
@@ -163,7 +233,14 @@ export default function Home() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {profiles.map(profile => (
-            <ProfileCard key={profile.id} profile={profile} customBadges={customBadges} customBanners={customBanners} />
+            <ProfileCard
+              key={profile.id}
+              profile={profile}
+              customBadges={customBadges}
+              customBanners={customBanners}
+              maps={maps as MapRecord[]}
+              isOwner={!!(user && profile.userId === user.id)}
+            />
           ))}
         </div>
       )}
@@ -177,13 +254,22 @@ export default function Home() {
         <Skull className="w-5 h-5" />
       </button>
 
-      <Link
-        href="/creator"
-        className="fixed bottom-8 right-8 w-16 h-16 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(139,0,0,0.6)] hover:scale-110 hover:shadow-[0_0_40px_rgba(139,0,0,0.8)] transition-all animate-pulse duration-1000 z-50 border border-red-500/50"
-        data-testid="button-create-profile"
-      >
-        <Plus className="w-8 h-8" />
-      </Link>
+      {user ? (
+        <Link
+          href="/creator"
+          className="fixed bottom-8 right-8 w-16 h-16 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(139,0,0,0.6)] hover:scale-110 hover:shadow-[0_0_40px_rgba(139,0,0,0.8)] transition-all animate-pulse duration-1000 z-50 border border-red-500/50"
+          data-testid="button-create-profile"
+        >
+          <Plus className="w-8 h-8" />
+        </Link>
+      ) : (
+        <Link
+          href="/creator"
+          className="fixed bottom-8 right-8 px-4 py-3 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(139,0,0,0.5)] hover:scale-105 transition-all z-50 border border-red-500/50"
+        >
+          LOG IN TO CREATE ID
+        </Link>
+      )}
     </div>
   );
 }

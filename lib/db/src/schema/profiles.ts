@@ -1,9 +1,11 @@
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
 
 export const profilesTable = pgTable("profiles", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => usersTable.id, { onDelete: "set null" }),
   username: text("username").notNull(),
   displayName: text("display_name").notNull(),
   favoriteColor: text("favorite_color").notNull(),
@@ -11,6 +13,7 @@ export const profilesTable = pgTable("profiles", {
   imageData: text("image_data").notNull().default(""),
   ageGroup: text("age_group").notNull().default("13-15"),
   badges: text("badges").array().notNull().default([]),
+  traits: text("traits").array().notNull().default([]),
   skin: text("skin").notNull().default("Red"),
   banner: text("banner"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -8,14 +8,18 @@ import {
   useListCustomSkins, useCreateCustomSkin, useDeleteCustomSkin,
   useListCustomBadges, useCreateCustomBadge, useDeleteCustomBadge,
   useListCustomBanners, useCreateCustomBanner, useDeleteCustomBanner,
+  useListMaps, useCreateMap, useDeleteMap, useCreatePinpoint, useDeletePinpoint,
+  useListUsers, useGiveBadge, useListBadgeInventoryForUser, useRemoveBadge,
   getListProfilesQueryKey, getListEventsQueryKey, getListBulletinQueryKey,
   getListCustomSkinsQueryKey, getListCustomBadgesQueryKey, getListCustomBannersQueryKey,
+  getListMapsQueryKey, getListBadgeInventoryForUserQueryKey,
   ProfileRecord, EventRecord, BulletinRecord, CustomSkinRecord, CustomBadgeRecord, CustomBannerRecord,
+  UserRecord,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ALL_SKINS } from "@/lib/skins";
 import { ALL_BADGES } from "@/lib/badges";
-import { BANNER_PRESETS } from "@/lib/banners";
+import { BANNER_PRESETS, getBannerCss } from "@/lib/banners";
 import { getBannerPatternStyle, BANNER_PATTERN_TYPES } from "@/lib/bannerPatterns";
 
 import { Button } from "@/components/ui/button";
@@ -170,10 +174,9 @@ function BannerRow({ profile, onUpdated, customBanners }: { profile: ProfileReco
       const cb = customBanners.find(b => b.id === id);
       return cb ? getBannerPatternStyle(cb.patternType, cb.primaryColor, cb.secondaryColor, cb.bgColor) as React.CSSProperties : {};
     }
-    const preset = BANNER_PRESETS.find(p => p.id === selected);
-    if (preset?.gradient) return { background: preset.gradient };
     if (selected.startsWith("#")) return { background: selected };
-    return {};
+    const css = getBannerCss(selected);
+    return Object.keys(css).length > 0 ? css as React.CSSProperties : {};
   })();
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-card/50 border border-border gap-4">
@@ -915,6 +918,320 @@ function CustomBannerMakerSection({ refresh }: { refresh: () => void }) {
   );
 }
 
+function BadgeInventorySection({ refresh, accessCode }: { refresh: () => void; accessCode: string }) {
+  const { data: users = [] } = useListUsers();
+  const giveBadge = useGiveBadge();
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [badgeName, setBadgeName] = useState("");
+  const [inventoryUserId, setInventoryUserId] = useState<number | null>(null);
+  const { data: inventory = [] } = useListBadgeInventoryForUser(
+    inventoryUserId ?? 0,
+    { query: { enabled: inventoryUserId !== null, queryKey: getListBadgeInventoryForUserQueryKey(inventoryUserId ?? 0) } }
+  );
+  const removeBadge = useRemoveBadge();
+
+  const handleGive = () => {
+    if (!selectedUserId || !badgeName.trim()) return;
+    giveBadge.mutate(
+      { data: { userId: selectedUserId, badgeName: badgeName.trim(), accessCode } },
+      {
+        onSuccess: () => {
+          setBadgeName("");
+          refresh();
+          if (inventoryUserId === selectedUserId) refresh();
+        }
+      }
+    );
+  };
+
+  return (
+    <section className="space-y-6">
+      <SectionHeader>SECTION 9: BADGE INVENTORY</SectionHeader>
+      <p className="font-mono text-xs text-muted-foreground/70 uppercase tracking-wider">
+        Give account-linked badges to registered users. These appear in their badge inventory.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-5 border border-primary/30 bg-card/50 space-y-4">
+          <div className="font-mono text-sm text-primary uppercase tracking-wider">Give Badge</div>
+          <div className="space-y-3">
+            <div>
+              <label className="font-mono text-xs uppercase text-primary block mb-1">Select User</label>
+              <Select
+                value={selectedUserId ? String(selectedUserId) : ""}
+                onValueChange={v => setSelectedUserId(parseInt(v, 10))}
+              >
+                <SelectTrigger className="font-mono bg-background border-border"><SelectValue placeholder="PICK USER..." /></SelectTrigger>
+                <SelectContent className="font-mono bg-card">
+                  {(users as UserRecord[]).map(u => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {u.robloxUsername} {u.status ? `— "${u.status}"` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="font-mono text-xs uppercase text-primary block mb-1">Badge Name</label>
+              <Input
+                value={badgeName}
+                onChange={e => setBadgeName(e.target.value)}
+                placeholder="BADGE NAME"
+                className="font-mono bg-background border-border"
+              />
+            </div>
+            <Button
+              onClick={handleGive}
+              disabled={!selectedUserId || !badgeName.trim() || giveBadge.isPending}
+              className="font-mono bg-primary hover:bg-primary/80 w-full"
+            >
+              {giveBadge.isPending ? "GRANTING..." : "GRANT BADGE"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-5 border border-primary/30 bg-card/50 space-y-4">
+          <div className="font-mono text-sm text-primary uppercase tracking-wider">View Inventory</div>
+          <div>
+            <label className="font-mono text-xs uppercase text-primary block mb-1">Select User</label>
+            <Select
+              value={inventoryUserId ? String(inventoryUserId) : ""}
+              onValueChange={v => setInventoryUserId(parseInt(v, 10))}
+            >
+              <SelectTrigger className="font-mono bg-background border-border"><SelectValue placeholder="PICK USER..." /></SelectTrigger>
+              <SelectContent className="font-mono bg-card">
+                {(users as UserRecord[]).map(u => (
+                  <SelectItem key={u.id} value={String(u.id)}>{u.robloxUsername}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {inventoryUserId && (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {inventory.length === 0 ? (
+                <p className="text-xs font-mono text-muted-foreground">No badges in inventory.</p>
+              ) : (
+                inventory.map(item => (
+                  <div key={item.id} className="flex items-center justify-between p-2 border border-primary/20 bg-background/50">
+                    <span className="font-mono text-sm text-foreground">{item.badgeName}</span>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="font-mono text-xs h-6 px-2"
+                      onClick={() => removeBadge.mutate({ id: item.id }, { onSuccess: refresh })}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MapMakerSection({ refresh, accessCode }: { refresh: () => void; accessCode: string }) {
+  const { data: maps = [], isLoading } = useListMaps();
+  const createMap = useCreateMap();
+  const deleteMap = useDeleteMap();
+  const createPinpoint = useCreatePinpoint();
+  const deletePinpoint = useDeletePinpoint();
+
+  const [addingMap, setAddingMap] = useState(false);
+  const [mapName, setMapName] = useState("");
+  const [mapImageData, setMapImageData] = useState("");
+  const mapFileRef = useRef<HTMLInputElement>(null);
+
+  const [expandedMapId, setExpandedMapId] = useState<number | null>(null);
+  const [addingPin, setAddingPin] = useState(false);
+  const [pinName, setPinName] = useState("");
+  const [pinType, setPinType] = useState<"live" | "info">("live");
+  const [pinDesc, setPinDesc] = useState("");
+  const [pinX, setPinX] = useState("50");
+  const [pinY, setPinY] = useState("50");
+
+  const handleMapImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try { setMapImageData(await cropToSquare(file)); }
+      catch { const r = new FileReader(); r.onloadend = () => setMapImageData(r.result as string); r.readAsDataURL(file); }
+    }
+  };
+
+  const handleCreateMap = () => {
+    if (!mapName.trim()) return;
+    createMap.mutate(
+      { data: { name: mapName, imageData: mapImageData, accessCode } },
+      { onSuccess: () => { setMapName(""); setMapImageData(""); setAddingMap(false); refresh(); } }
+    );
+  };
+
+  const resetPin = () => { setPinName(""); setPinType("live"); setPinDesc(""); setPinX("50"); setPinY("50"); setAddingPin(false); };
+
+  const handleCreatePin = (mapId: number) => {
+    if (!pinName.trim()) return;
+    createPinpoint.mutate(
+      {
+        mapId,
+        data: { name: pinName, type: pinType, description: pinDesc, xPercent: parseFloat(pinX), yPercent: parseFloat(pinY), accessCode }
+      },
+      { onSuccess: () => { resetPin(); refresh(); } }
+    );
+  };
+
+  return (
+    <section className="space-y-6">
+      <SectionHeader>SECTION 10: MAP MAKER</SectionHeader>
+      <p className="font-mono text-xs text-muted-foreground/70 uppercase tracking-wider">
+        Create maps for the territory view. Add live (house) or info (building) pinpoints with X/Y % positions.
+      </p>
+      {isLoading ? <p className="font-mono text-muted-foreground text-sm animate-pulse">LOADING...</p> : null}
+
+      <div className="grid gap-4">
+        {maps.map(m => (
+          <div key={m.id} className="border border-primary/30 bg-card/50">
+            <div className="flex items-center justify-between p-4 gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {m.imageData && (
+                  <img src={m.imageData} className="w-16 h-16 object-cover border border-primary/30 flex-shrink-0" />
+                )}
+                <div className="font-mono min-w-0">
+                  <div className="font-bold truncate">{m.name}</div>
+                  <div className="text-xs text-muted-foreground">{m.pinpoints.length} pinpoints</div>
+                </div>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <Button variant="outline" size="sm" className="font-mono text-xs"
+                  onClick={() => setExpandedMapId(expandedMapId === m.id ? null : m.id)}>
+                  {expandedMapId === m.id ? "COLLAPSE" : "MANAGE"}
+                </Button>
+                <Button variant="destructive" size="sm" className="font-mono text-xs"
+                  onClick={() => deleteMap.mutate({ id: m.id }, { onSuccess: refresh })}>
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+
+            {expandedMapId === m.id && (
+              <div className="border-t border-primary/20 p-4 space-y-4">
+                <div className="font-mono text-xs text-primary uppercase tracking-wider">Pinpoints</div>
+                <div className="grid gap-2">
+                  {m.pinpoints.map(p => (
+                    <div key={p.id} className="flex items-center justify-between p-2 border border-primary/20 bg-background/50 gap-2">
+                      <div className="font-mono text-sm flex-1 min-w-0">
+                        <span className={`text-xs mr-2 ${p.type === "live" ? "text-green-400" : "text-blue-400"}`}>
+                          {p.type === "live" ? "⌂" : "⊞"}
+                        </span>
+                        <span>{p.name}</span>
+                        <span className="text-muted-foreground text-xs ml-2">({p.xPercent}%, {p.yPercent}%)</span>
+                      </div>
+                      <Button variant="destructive" size="sm" className="font-mono text-xs h-6 px-2 flex-shrink-0"
+                        onClick={() => deletePinpoint.mutate({ mapId: m.id, pinId: p.id }, { onSuccess: refresh })}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                {addingPin && expandedMapId === m.id ? (
+                  <div className="p-4 border border-primary/20 bg-background/30 space-y-3">
+                    <div className="font-mono text-xs text-primary uppercase">Add Pinpoint</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-mono text-xs uppercase text-primary block mb-1">Name</label>
+                        <Input value={pinName} onChange={e => setPinName(e.target.value)} placeholder="Location name" className="font-mono bg-background border-border text-sm" />
+                      </div>
+                      <div>
+                        <label className="font-mono text-xs uppercase text-primary block mb-1">Type</label>
+                        <Select value={pinType} onValueChange={v => setPinType(v as "live" | "info")}>
+                          <SelectTrigger className="font-mono bg-background border-border text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent className="font-mono bg-card">
+                            <SelectItem value="live">⌂ Live (users can reside)</SelectItem>
+                            <SelectItem value="info">⊞ Info (info only)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="font-mono text-xs uppercase text-primary block mb-1">X% (left→right)</label>
+                        <Input type="number" min={0} max={100} value={pinX} onChange={e => setPinX(e.target.value)} className="font-mono bg-background border-border text-sm" />
+                      </div>
+                      <div>
+                        <label className="font-mono text-xs uppercase text-primary block mb-1">Y% (top→bottom)</label>
+                        <Input type="number" min={0} max={100} value={pinY} onChange={e => setPinY(e.target.value)} className="font-mono bg-background border-border text-sm" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="font-mono text-xs uppercase text-primary block mb-1">Description</label>
+                        <Textarea value={pinDesc} onChange={e => setPinDesc(e.target.value)} placeholder="Location description..." rows={2} className="font-mono bg-background border-border text-sm resize-none" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="font-mono bg-primary hover:bg-primary/80"
+                        disabled={createPinpoint.isPending}
+                        onClick={() => handleCreatePin(m.id)}>
+                        {createPinpoint.isPending ? "ADDING..." : "ADD PINPOINT"}
+                      </Button>
+                      <Button size="sm" variant="outline" className="font-mono" onClick={resetPin}>CANCEL</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button size="sm" className="font-mono bg-card border border-primary/40 text-primary hover:bg-primary/10"
+                    onClick={() => setAddingPin(true)}>
+                    <Plus className="w-3 h-3 mr-1" /> ADD PINPOINT
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {addingMap ? (
+        <div className="p-6 border border-primary/30 bg-card/50 space-y-4">
+          <div className="font-mono text-sm text-primary uppercase">CREATE NEW MAP</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <div>
+                <label className="font-mono text-xs uppercase text-primary block mb-1">Map Name</label>
+                <Input value={mapName} onChange={e => setMapName(e.target.value)} placeholder="THE DARK FOREST" className="font-mono bg-background border-border" />
+              </div>
+              <div>
+                <label className="font-mono text-xs uppercase text-primary block mb-1">Map Image</label>
+                <div
+                  className="w-full aspect-video border-2 border-dashed border-primary/40 flex items-center justify-center cursor-pointer overflow-hidden"
+                  onClick={() => mapFileRef.current?.click()}
+                >
+                  {mapImageData
+                    ? <img src={mapImageData} className="w-full h-full object-cover" />
+                    : <span className="font-mono text-xs text-muted-foreground">CLICK TO UPLOAD MAP IMAGE</span>
+                  }
+                </div>
+                <input type="file" accept="image/*" className="hidden" ref={mapFileRef} onChange={handleMapImage} />
+              </div>
+            </div>
+            <div className="font-mono text-xs text-muted-foreground space-y-2 p-4 border border-border/30 bg-background/30">
+              <div className="text-primary uppercase mb-2">Map Image Tips</div>
+              <p>Upload a top-down map image (any ratio). Pinpoints will be positioned as % of image width/height.</p>
+              <p className="mt-2">After creating the map, expand it and add pinpoints with exact X/Y positions.</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button onClick={handleCreateMap} disabled={createMap.isPending || !mapName.trim()} className="font-mono bg-primary hover:bg-primary/80">
+              {createMap.isPending ? "CREATING..." : "CREATE MAP"}
+            </Button>
+            <Button variant="outline" onClick={() => { setAddingMap(false); setMapName(""); setMapImageData(""); }} className="font-mono">CANCEL</Button>
+          </div>
+        </div>
+      ) : (
+        <Button onClick={() => setAddingMap(true)} className="font-mono bg-card border border-primary/40 text-primary hover:bg-primary/10">
+          <Plus className="w-4 h-4 mr-2" /> CREATE NEW MAP
+        </Button>
+      )}
+    </section>
+  );
+}
+
 export default function Moderator() {
   const [, setLocation] = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -941,6 +1258,8 @@ export default function Moderator() {
   const refreshSkins = () => queryClient.invalidateQueries({ queryKey: getListCustomSkinsQueryKey() });
   const refreshBadges = () => queryClient.invalidateQueries({ queryKey: getListCustomBadgesQueryKey() });
   const refreshBanners = () => queryClient.invalidateQueries({ queryKey: getListCustomBannersQueryKey() });
+  const refreshMaps = () => queryClient.invalidateQueries({ queryKey: getListMapsQueryKey() });
+  const refreshInventory = () => queryClient.invalidateQueries();
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1024,6 +1343,8 @@ export default function Moderator() {
           <SkinMakerSection refresh={refreshSkins} />
           <BadgeMakerSection refresh={refreshBadges} />
           <CustomBannerMakerSection refresh={refreshBanners} />
+          <BadgeInventorySection refresh={refreshInventory} accessCode={ACCESS_CODE} />
+          <MapMakerSection refresh={refreshMaps} accessCode={ACCESS_CODE} />
         </div>
       )}
     </div>

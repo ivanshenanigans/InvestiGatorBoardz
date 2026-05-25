@@ -7,6 +7,9 @@
  */
 
 export * from './apiError';
+export * from './authCredentials';
+export * from './authResponse';
+export * from './badgeInventoryRecord';
 export * from './bulletinInput';
 export * from './bulletinRecord';
 export * from './customBadgeInput';
@@ -17,7 +20,17 @@ export * from './customSkinInput';
 export * from './customSkinRecord';
 export * from './eventInput';
 export * from './eventRecord';
+export * from './giveBadgeInput';
 export * from './healthStatus';
+export * from './liveHereInput';
+export * from './mapInput';
+export * from './mapRecord';
+export * from './pinpointInput';
+export * from './pinpointRecord';
 export * from './profileInput';
 export * from './profileRecord';
 export * from './profileUpdate';
+export * from './residentRecord';
+export * from './userLocationRecord';
+export * from './userRecord';
+export * from './userUpdate';

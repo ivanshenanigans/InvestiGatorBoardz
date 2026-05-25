@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Auth operations
   - name: profiles
     description: Profile operations
   - name: events
@@ -22,6 +24,10 @@ tags:
     description: Custom badge operations
   - name: customBanners
     description: Custom banner operations
+  - name: maps
+    description: Map operations
+  - name: badgeInventory
+    description: Badge inventory operations
 paths:
   /healthz:
     get:
@@ -35,6 +41,107 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCredentials"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCredentials"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRecord"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updateMe
+      tags: [auth]
+      summary: Update current user status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRecord"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [auth]
+      summary: List all users (mod panel)
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserRecord"
 
   /profiles:
     get:
@@ -67,12 +174,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfileRecord"
-        "409":
-          description: Profile limit reached
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
 
   /profiles/{id}:
     delete:
@@ -97,7 +198,7 @@ paths:
     patch:
       operationId: updateProfile
       tags: [profiles]
-      summary: Update profile skin, badges, or banner
+      summary: Update profile
       parameters:
         - name: id
           in: path
@@ -435,6 +536,256 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /maps:
+    get:
+      operationId: listMaps
+      tags: [maps]
+      summary: List all maps with pinpoints
+      responses:
+        "200":
+          description: List of maps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MapRecord"
+    post:
+      operationId: createMap
+      tags: [maps]
+      summary: Create a map (moderator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MapInput"
+      responses:
+        "201":
+          description: Created map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapRecord"
+
+  /maps/{id}:
+    patch:
+      operationId: updateMap
+      tags: [maps]
+      summary: Update a map (moderator)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MapInput"
+      responses:
+        "200":
+          description: Updated map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapRecord"
+    delete:
+      operationId: deleteMap
+      tags: [maps]
+      summary: Delete a map (moderator)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /maps/{mapId}/pinpoints:
+    post:
+      operationId: createPinpoint
+      tags: [maps]
+      summary: Add a pinpoint to a map (moderator)
+      parameters:
+        - name: mapId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinpointInput"
+      responses:
+        "201":
+          description: Created pinpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PinpointRecord"
+
+  /maps/{mapId}/pinpoints/{pinId}:
+    patch:
+      operationId: updatePinpoint
+      tags: [maps]
+      summary: Update a pinpoint (moderator)
+      parameters:
+        - name: mapId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: pinId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinpointInput"
+      responses:
+        "200":
+          description: Updated pinpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PinpointRecord"
+    delete:
+      operationId: deletePinpoint
+      tags: [maps]
+      summary: Delete a pinpoint (moderator)
+      parameters:
+        - name: mapId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: pinId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /maps/{mapId}/pinpoints/{pinId}/live-here:
+    post:
+      operationId: liveHere
+      tags: [maps]
+      summary: Live at a pinpoint (requires auth)
+      parameters:
+        - name: mapId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: pinId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveHereInput"
+      responses:
+        "201":
+          description: Now living here
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserLocationRecord"
+
+  /user-location:
+    delete:
+      operationId: moveOut
+      tags: [maps]
+      summary: Remove current user location
+      responses:
+        "204":
+          description: Moved out
+
+  /badge-inventory:
+    get:
+      operationId: listBadgeInventory
+      tags: [badgeInventory]
+      summary: Get current user badge inventory
+      responses:
+        "200":
+          description: Badge inventory
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BadgeInventoryRecord"
+    post:
+      operationId: giveBadge
+      tags: [badgeInventory]
+      summary: Give a badge to a user (moderator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GiveBadgeInput"
+      responses:
+        "201":
+          description: Badge given
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadgeInventoryRecord"
+
+  /badge-inventory/user/{userId}:
+    get:
+      operationId: listBadgeInventoryForUser
+      tags: [badgeInventory]
+      summary: Get badge inventory for a specific user (mod panel)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Badge inventory
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BadgeInventoryRecord"
+
+  /badge-inventory/{id}:
+    delete:
+      operationId: removeBadge
+      tags: [badgeInventory]
+      summary: Remove a badge from inventory (moderator)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
 components:
   schemas:
     HealthStatus:
@@ -451,12 +802,55 @@ components:
         error:
           type: string
 
-    ProfileRecord:
+    AuthCredentials:
       type: object
-      required: [id, username, displayName, favoriteColor, bio, imageData, ageGroup, badges, skin, createdAt]
+      required: [robloxUsername, password]
+      properties:
+        robloxUsername:
+          type: string
+          minLength: 2
+          maxLength: 30
+        password:
+          type: string
+          minLength: 6
+
+    UserRecord:
+      type: object
+      required: [id, robloxUsername, status]
       properties:
         id:
           type: integer
+        robloxUsername:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+
+    UserUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          maxLength: 60
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserRecord"
+
+    ProfileRecord:
+      type: object
+      required: [id, username, displayName, favoriteColor, bio, imageData, ageGroup, badges, traits, skin, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: ["integer", "null"]
         username:
           type: string
         displayName:
@@ -470,6 +864,10 @@ components:
         ageGroup:
           type: string
         badges:
+          type: array
+          items:
+            type: string
+        traits:
           type: array
           items:
             type: string
@@ -503,6 +901,10 @@ components:
           type: string
         banner:
           type: string
+        traits:
+          type: array
+          items:
+            type: string
 
     ProfileUpdate:
       type: object
@@ -515,6 +917,22 @@ components:
             type: string
         banner:
           type: ["string", "null"]
+        username:
+          type: string
+        displayName:
+          type: string
+        favoriteColor:
+          type: string
+        bio:
+          type: string
+        imageData:
+          type: string
+        ageGroup:
+          type: string
+        traits:
+          type: array
+          items:
+            type: string
 
     EventRecord:
       type: object
@@ -685,3 +1103,138 @@ components:
           type: array
           items:
             type: string
+
+    MapRecord:
+      type: object
+      required: [id, name, imageData, createdAt, pinpoints]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        imageData:
+          type: string
+        createdAt:
+          type: string
+        pinpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/PinpointRecord"
+
+    MapInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        imageData:
+          type: string
+        accessCode:
+          type: string
+
+    PinpointRecord:
+      type: object
+      required: [id, mapId, type, name, description, imageData, xPercent, yPercent, createdAt, residents]
+      properties:
+        id:
+          type: integer
+        mapId:
+          type: integer
+        type:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        imageData:
+          type: string
+        xPercent:
+          type: number
+        yPercent:
+          type: number
+        createdAt:
+          type: string
+        residents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResidentRecord"
+
+    PinpointInput:
+      type: object
+      required: [name]
+      properties:
+        type:
+          type: string
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        imageData:
+          type: string
+        xPercent:
+          type: number
+        yPercent:
+          type: number
+        accessCode:
+          type: string
+
+    ResidentRecord:
+      type: object
+      required: [userId, robloxUsername, displayName, description]
+      properties:
+        userId:
+          type: integer
+        robloxUsername:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+
+    LiveHereInput:
+      type: object
+      properties:
+        description:
+          type: string
+          maxLength: 500
+
+    UserLocationRecord:
+      type: object
+      required: [id, userId, pinpointId, description, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        pinpointId:
+          type: integer
+        description:
+          type: string
+        createdAt:
+          type: string
+
+    BadgeInventoryRecord:
+      type: object
+      required: [id, userId, badgeName, grantedAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        badgeName:
+          type: string
+        grantedAt:
+          type: string
+
+    GiveBadgeInput:
+      type: object
+      required: [userId, badgeName]
+      properties:
+        userId:
+          type: integer
+        badgeName:
+          type: string
+        accessCode:
+          type: string

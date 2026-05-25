@@ -13,8 +13,37 @@ export interface ApiError {
   error: string;
 }
 
+export interface AuthCredentials {
+  /**
+     * @minLength 2
+     * @maxLength 30
+     */
+  robloxUsername: string;
+  /** @minLength 6 */
+  password: string;
+}
+
+export interface UserRecord {
+  id: number;
+  robloxUsername: string;
+  status: string;
+  createdAt?: string;
+}
+
+export interface UserUpdate {
+  /** @maxLength 60 */
+  status?: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: UserRecord;
+}
+
 export interface ProfileRecord {
   id: number;
+  /** @nullable */
+  userId?: number | null;
   username: string;
   displayName: string;
   favoriteColor: string;
@@ -22,6 +51,7 @@ export interface ProfileRecord {
   imageData: string;
   ageGroup: string;
   badges: string[];
+  traits: string[];
   skin: string;
   /** @nullable */
   banner?: string | null;
@@ -45,6 +75,7 @@ export interface ProfileInput {
   imageData: string;
   ageGroup: string;
   banner?: string;
+  traits?: string[];
 }
 
 export interface ProfileUpdate {
@@ -52,6 +83,13 @@ export interface ProfileUpdate {
   badges?: string[];
   /** @nullable */
   banner?: string | null;
+  username?: string;
+  displayName?: string;
+  favoriteColor?: string;
+  bio?: string;
+  imageData?: string;
+  ageGroup?: string;
+  traits?: string[];
 }
 
 export interface EventRecord {
@@ -142,5 +180,77 @@ export interface CustomSkinInput {
   bgGradientFrom: string;
   bgGradientTo: string;
   accessories: string[];
+}
+
+export interface ResidentRecord {
+  userId: number;
+  robloxUsername: string;
+  displayName: string;
+  description: string;
+}
+
+export interface PinpointRecord {
+  id: number;
+  mapId: number;
+  type: string;
+  name: string;
+  description: string;
+  imageData: string;
+  xPercent: number;
+  yPercent: number;
+  createdAt: string;
+  residents: ResidentRecord[];
+}
+
+export interface MapRecord {
+  id: number;
+  name: string;
+  imageData: string;
+  createdAt: string;
+  pinpoints: PinpointRecord[];
+}
+
+export interface MapInput {
+  /** @minLength 1 */
+  name: string;
+  imageData?: string;
+  accessCode?: string;
+}
+
+export interface PinpointInput {
+  type?: string;
+  /** @minLength 1 */
+  name: string;
+  description?: string;
+  imageData?: string;
+  xPercent?: number;
+  yPercent?: number;
+  accessCode?: string;
+}
+
+export interface LiveHereInput {
+  /** @maxLength 500 */
+  description?: string;
+}
+
+export interface UserLocationRecord {
+  id: number;
+  userId: number;
+  pinpointId: number;
+  description: string;
+  createdAt: string;
+}
+
+export interface BadgeInventoryRecord {
+  id: number;
+  userId: number;
+  badgeName: string;
+  grantedAt: string;
+}
+
+export interface GiveBadgeInput {
+  userId: number;
+  badgeName: string;
+  accessCode?: string;
 }
 

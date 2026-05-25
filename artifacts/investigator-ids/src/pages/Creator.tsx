@@ -3,12 +3,13 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Upload, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Upload } from "lucide-react";
 import {
   useCreateProfile, useListCustomBanners,
   getListProfilesQueryKey, CustomBannerRecord,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { BANNER_PRESETS, getBannerCss } from "@/lib/banners";
 import { getBannerPatternStyle } from "@/lib/bannerPatterns";
+import { ALL_TRAITS } from "@/lib/traits";
 
 const AGE_GROUPS = ["9 below", "9-12", "13-15", "16-17", "18-20", "21+"] as const;
 
@@ -74,29 +76,37 @@ function resolveBannerPreviewCss(
 
 export default function Creator() {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
   const [imagePreview, setImagePreview] = useState<string>("");
   const [selectedBanner, setSelectedBanner] = useState<string>("none");
   const [bannerTab, setBannerTab] = useState<"presets" | "color" | "custom">("presets");
   const [solidColor, setSolidColor] = useState<string>("#8b0000");
+  const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const { data: customBanners = [] } = useListCustomBanners();
-  const isFull = false;
-
   const createProfile = useCreateProfile();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: "", displayName: "", ageGroup: "13-15", favoriteColor: "#ff0000", bio: "",
+      username: user?.robloxUsername ?? "",
+      displayName: "",
+      ageGroup: "13-15",
+      favoriteColor: "#ff0000",
+      bio: "",
     },
   });
 
+  useEffect(() => {
+    if (user?.robloxUsername && !form.getValues("username")) {
+      form.setValue("username", user.robloxUsername);
+    }
+  }, [user, form]);
+
   const bioValue = form.watch("bio");
   const formValues = form.watch();
-
-  useEffect(() => { if (isFull) return; }, [isFull]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -110,15 +120,27 @@ export default function Creator() {
     }
   };
 
+  function toggleTrait(trait: string) {
+    setSelectedTraits(prev =>
+      prev.includes(trait)
+        ? prev.filter(t => t !== trait)
+        : prev.length >= 10 ? prev : [...prev, trait]
+    );
+  }
+
   const onSubmit = (data: FormValues) => {
-    if (isFull) return;
+    const bannerValue = bannerTab === "color" ? solidColor : selectedBanner;
     createProfile.mutate(
       {
         data: {
-          username: data.username, displayName: data.displayName,
-          favoriteColor: data.favoriteColor, bio: data.bio,
-          imageData: imagePreview, ageGroup: data.ageGroup,
-          banner: selectedBanner === "none" ? undefined : selectedBanner,
+          username: data.username,
+          displayName: data.displayName,
+          favoriteColor: data.favoriteColor,
+          bio: data.bio,
+          imageData: imagePreview,
+          ageGroup: data.ageGroup,
+          banner: bannerValue === "none" ? undefined : bannerValue,
+          traits: selectedTraits,
         },
       },
       {
@@ -130,28 +152,19 @@ export default function Creator() {
     );
   };
 
-  if (isFull) {
-    return (
-      <div className="container mx-auto px-4 py-24 max-w-2xl text-center space-y-8">
-        <AlertTriangle className="w-24 h-24 text-destructive mx-auto animate-pulse" />
-        <h1 className="text-4xl font-serif text-destructive tracking-widest uppercase">Maximum Subjects Reached</h1>
-        <p className="text-xl font-mono text-muted-foreground border-y border-border py-4">
-          DATABASE FULL. NO FURTHER ENTRIES PERMITTED.
-        </p>
-        <Button variant="outline" onClick={() => setLocation("/")}
-          className="font-mono mt-8 border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-          <ArrowLeft className="mr-2 w-4 h-4" /> RETURN TO ARCHIVE
-        </Button>
-      </div>
-    );
-  }
+  const bannerPreviewCss = resolveBannerPreviewCss(
+    bannerTab === "color" ? solidColor : selectedBanner,
+    customBanners,
+  );
 
-  const bannerPreviewCss = resolveBannerPreviewCss(selectedBanner, customBanners);
-
-  const bannerLabel = selectedBanner === "none" ? "NONE"
-    : selectedBanner.startsWith("#") ? `SOLID ${selectedBanner.toUpperCase()}`
-    : selectedBanner.startsWith("custom:") ? (customBanners.find(b => `custom:${b.id}` === selectedBanner)?.name ?? "CUSTOM")
-    : (BANNER_PRESETS.find(p => p.id === selectedBanner)?.label ?? "NONE");
+  const bannerLabel = (() => {
+    if (bannerTab === "color") return `SOLID ${solidColor.toUpperCase()}`;
+    if (selectedBanner === "none") return "NONE";
+    if (selectedBanner.startsWith("custom:")) {
+      return customBanners.find(b => `custom:${b.id}` === selectedBanner)?.name ?? "CUSTOM";
+    }
+    return BANNER_PRESETS.find(p => p.id === selectedBanner)?.label ?? "NONE";
+  })();
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -163,6 +176,9 @@ export default function Creator() {
       <header className="mb-12 border-b border-border pb-6">
         <h1 className="text-3xl font-serif text-primary tracking-widest uppercase">New Subject Entry</h1>
         <p className="text-muted-foreground font-mono text-sm mt-2">AUTHORIZATION REQUIRED. ALL FIELDS MONITORED.</p>
+        {user && (
+          <p className="text-xs font-mono text-primary/60 mt-1">Logged in as: {user.robloxUsername}</p>
+        )}
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -260,11 +276,41 @@ export default function Creator() {
                 </FormItem>
               )} />
 
+              {/* ── Traits ── */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs uppercase text-primary">Traits</span>
+                  <span className="text-xs font-mono text-muted-foreground">{selectedTraits.length}/10</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1 border border-border/30 p-2">
+                  {ALL_TRAITS.map(trait => (
+                    <button
+                      key={trait}
+                      type="button"
+                      onClick={() => toggleTrait(trait)}
+                      className={`px-2 py-0.5 text-xs font-mono border transition-colors ${
+                        selectedTraits.includes(trait)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-primary/30 text-muted-foreground hover:border-primary hover:text-foreground"
+                      }`}
+                    >
+                      {trait}
+                    </button>
+                  ))}
+                </div>
+                {selectedTraits.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedTraits.map(t => (
+                      <span key={t} className="text-xs border border-primary/50 px-1.5 py-0.5 text-primary/80 font-mono">{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* ── Banner Picker ── */}
               <div className="space-y-3">
                 <div className="font-mono text-xs uppercase text-primary">ID Banner</div>
 
-                {/* Tab switcher */}
                 <div className="flex border-b border-border/40">
                   {(["presets", "color", "custom"] as const).map(tab => (
                     <button key={tab} type="button"
@@ -284,7 +330,6 @@ export default function Creator() {
                   ))}
                 </div>
 
-                {/* PRESETS */}
                 {bannerTab === "presets" && (
                   <div className="grid grid-cols-4 gap-2">
                     {BANNER_PRESETS.map(preset => (
@@ -296,7 +341,7 @@ export default function Creator() {
                             : "border-border/50 hover:border-primary/60"
                         }`}
                         style={preset.id !== "none"
-                          ? { background: preset.gradient }
+                          ? (getBannerCss(preset.id) as React.CSSProperties)
                           : { background: "repeating-linear-gradient(45deg,#111 0px,#111 4px,#0a0a0a 4px,#0a0a0a 8px)" }}
                         title={preset.label}>
                         {selectedBanner === preset.id && (
@@ -312,7 +357,6 @@ export default function Creator() {
                   </div>
                 )}
 
-                {/* SOLID COLOR */}
                 {bannerTab === "color" && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-4">
@@ -322,19 +366,17 @@ export default function Creator() {
                       <div className="font-mono text-sm">
                         <div className="text-muted-foreground text-xs mb-1">HEX COLOR</div>
                         <div>{solidColor.toUpperCase()}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">Any color you want</div>
                       </div>
                     </div>
-                    <div className="h-10 w-full border border-border/50 rounded-none" style={{ backgroundColor: solidColor }} />
+                    <div className="h-10 w-full border border-border/50" style={{ backgroundColor: solidColor }} />
                   </div>
                 )}
 
-                {/* CUSTOM */}
                 {bannerTab === "custom" && (
                   <div>
                     {customBanners.length === 0 ? (
                       <p className="font-mono text-xs text-muted-foreground/60 py-4 text-center uppercase tracking-wider">
-                        No custom banners available yet.<br />Check back later.
+                        No custom banners available yet.
                       </p>
                     ) : (
                       <div className="grid gap-1.5 max-h-64 overflow-y-auto pr-1">
@@ -359,11 +401,6 @@ export default function Creator() {
                               <span className="px-3 font-mono text-xs text-white/90 bg-black/50 h-full flex items-center absolute inset-0">
                                 {cb.name}
                               </span>
-                              {selectedBanner === key && (
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
-                                  <span className="text-primary font-mono text-sm font-bold bg-black/60 px-1">✓</span>
-                                </div>
-                              )}
                             </button>
                           );
                         })}
@@ -436,10 +473,16 @@ export default function Creator() {
                       {formValues.bio ? `"${formValues.bio}"` : "NO DATA"}
                     </p>
                   </div>
-                  <div>
-                    <div className="text-xs text-primary/70 uppercase tracking-wider mb-1">Badges</div>
-                    <p className="text-xs font-mono text-muted-foreground">[NO BADGES ASSIGNED]</p>
-                  </div>
+                  {selectedTraits.length > 0 && (
+                    <div>
+                      <div className="text-xs text-primary/70 uppercase tracking-wider mb-1">Traits</div>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedTraits.map(t => (
+                          <span key={t} className="text-xs border border-primary/30 px-1.5 py-0.5 text-primary/70">{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

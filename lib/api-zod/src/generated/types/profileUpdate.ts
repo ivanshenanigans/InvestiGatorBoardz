@@ -11,4 +11,11 @@ export interface ProfileUpdate {
   badges?: string[];
   /** @nullable */
   banner?: string | null;
+  username?: string;
+  displayName?: string;
+  favoriteColor?: string;
+  bio?: string;
+  imageData?: string;
+  ageGroup?: string;
+  traits?: string[];
 }

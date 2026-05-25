@@ -59,7 +59,7 @@ export default function EventBoard() {
                   <div className="text-xs text-primary/70 uppercase tracking-wider">Event Designation</div>
                   <h2 className="text-2xl font-bold text-foreground uppercase tracking-wide">{event.title}</h2>
                   {event.description && (
-                    <p className="text-sm text-foreground/80 leading-relaxed border-t border-border/40 pt-3">
+                    <p className="text-sm text-foreground/80 leading-relaxed border-t border-border/40 pt-3 whitespace-pre-wrap">
                       {event.description}
                     </p>
                   )}

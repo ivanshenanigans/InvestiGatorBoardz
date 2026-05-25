@@ -8,6 +8,8 @@
 
 export interface ProfileRecord {
   id: number;
+  /** @nullable */
+  userId?: number | null;
   username: string;
   displayName: string;
   favoriteColor: string;
@@ -15,6 +17,7 @@ export interface ProfileRecord {
   imageData: string;
   ageGroup: string;
   badges: string[];
+  traits: string[];
   skin: string;
   /** @nullable */
   banner?: string | null;

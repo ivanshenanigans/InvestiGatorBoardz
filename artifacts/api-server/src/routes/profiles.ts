@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, profilesTable } from "@workspace/db";
+import { optionalAuth, requireAuth } from "../lib/jwt";
 
 const router: IRouter = Router();
 
@@ -17,9 +18,9 @@ router.get("/profiles", async (req, res) => {
   }
 });
 
-router.post("/profiles", async (req, res) => {
+router.post("/profiles", requireAuth, async (req, res) => {
   try {
-    const { username, displayName, favoriteColor, bio, imageData, ageGroup, banner } = req.body;
+    const { username, displayName, favoriteColor, bio, imageData, ageGroup, banner, traits } = req.body;
 
     if (!username || !displayName || !favoriteColor || !ageGroup) {
       res.status(400).json({ error: "Missing required fields" });
@@ -29,6 +30,7 @@ router.post("/profiles", async (req, res) => {
     const [created] = await db
       .insert(profilesTable)
       .values({
+        userId: req.user!.userId,
         username: String(username).slice(0, 30),
         displayName: String(displayName).slice(0, 30),
         favoriteColor: String(favoriteColor),
@@ -36,6 +38,7 @@ router.post("/profiles", async (req, res) => {
         imageData: String(imageData || ""),
         ageGroup: String(ageGroup),
         badges: [],
+        traits: Array.isArray(traits) ? traits.slice(0, 10) : [],
         skin: "Red",
         banner: banner ? String(banner) : null,
       })
@@ -50,7 +53,7 @@ router.post("/profiles", async (req, res) => {
 
 router.delete("/profiles/:id", async (req, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(String(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid ID" });
       return;
@@ -73,20 +76,44 @@ router.delete("/profiles/:id", async (req, res) => {
   }
 });
 
-router.patch("/profiles/:id", async (req, res) => {
+router.patch("/profiles/:id", optionalAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(String(req.params.id), 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid ID" });
       return;
     }
 
-    const { skin, badges, banner } = req.body;
+    const existingRows = await db
+      .select()
+      .from(profilesTable)
+      .where(eq(profilesTable.id, id))
+      .limit(1);
+
+    if (existingRows.length === 0) {
+      res.status(404).json({ error: "Profile not found" });
+      return;
+    }
+    const existing = existingRows[0]!;
+
+    const { skin, badges, banner, username, displayName, favoriteColor, bio, imageData, ageGroup, traits } = req.body;
     const updates: Record<string, unknown> = {};
+
+    const isOwner = req.user && existing.userId === req.user.userId;
 
     if (skin !== undefined) updates.skin = String(skin);
     if (badges !== undefined && Array.isArray(badges)) updates.badges = badges;
     if (banner !== undefined) updates.banner = banner === null ? null : String(banner);
+
+    if (isOwner) {
+      if (username !== undefined) updates.username = String(username).slice(0, 30);
+      if (displayName !== undefined) updates.displayName = String(displayName).slice(0, 30);
+      if (favoriteColor !== undefined) updates.favoriteColor = String(favoriteColor);
+      if (bio !== undefined) updates.bio = String(bio).slice(0, 75);
+      if (imageData !== undefined) updates.imageData = String(imageData);
+      if (ageGroup !== undefined) updates.ageGroup = String(ageGroup);
+      if (traits !== undefined && Array.isArray(traits)) updates.traits = traits.slice(0, 10);
+    }
 
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "No valid fields to update" });

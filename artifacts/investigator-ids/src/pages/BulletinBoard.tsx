@@ -42,7 +42,7 @@ function BulletinItem({ item }: { item: BulletinRecord }) {
         </div>
         <h3 className="text-lg font-bold text-foreground uppercase tracking-wide">{item.title}</h3>
         {item.content && (
-          <p className="text-sm text-foreground/70 leading-relaxed">{item.content}</p>
+          <p className="text-sm text-foreground/70 leading-relaxed whitespace-pre-wrap">{item.content}</p>
         )}
       </CardContent>
     </Card>
@@ -65,7 +65,7 @@ export default function BulletinBoard() {
       <Button
         variant="ghost"
         onClick={() => setLocation("/")}
-        className="mb-8 font-mono text-muted-foreground hover:text-foreground"
+        className="mb-mono text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="mr-2 w-4 h-4" />
         BACK TO ARCHIVE

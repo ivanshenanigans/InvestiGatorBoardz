@@ -17,10 +17,95 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Register a new account
+ */
+export const registerBodyRobloxUsernameMin = 2;
+export const registerBodyRobloxUsernameMax = 30;
+
+export const registerBodyPasswordMin = 6;
+
+
+
+export const RegisterBody = zod.object({
+  "robloxUsername": zod.string().min(registerBodyRobloxUsernameMin).max(registerBodyRobloxUsernameMax),
+  "password": zod.string().min(registerBodyPasswordMin)
+})
+
+
+/**
+ * @summary Login
+ */
+export const loginBodyRobloxUsernameMin = 2;
+export const loginBodyRobloxUsernameMax = 30;
+
+export const loginBodyPasswordMin = 6;
+
+
+
+export const LoginBody = zod.object({
+  "robloxUsername": zod.string().min(loginBodyRobloxUsernameMin).max(loginBodyRobloxUsernameMax),
+  "password": zod.string().min(loginBodyPasswordMin)
+})
+
+export const LoginResponse = zod.object({
+  "token": zod.string(),
+  "user": zod.object({
+  "id": zod.number(),
+  "robloxUsername": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string().optional()
+})
+})
+
+
+/**
+ * @summary Get current user
+ */
+export const GetMeResponse = zod.object({
+  "id": zod.number(),
+  "robloxUsername": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Update current user status
+ */
+export const updateMeBodyStatusMax = 60;
+
+
+
+export const UpdateMeBody = zod.object({
+  "status": zod.string().max(updateMeBodyStatusMax).optional()
+})
+
+export const UpdateMeResponse = zod.object({
+  "id": zod.number(),
+  "robloxUsername": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string().optional()
+})
+
+
+/**
+ * @summary List all users (mod panel)
+ */
+export const ListUsersResponseItem = zod.object({
+  "id": zod.number(),
+  "robloxUsername": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.string().optional()
+})
+export const ListUsersResponse = zod.array(ListUsersResponseItem)
+
+
+/**
  * @summary List all profiles
  */
 export const ListProfilesResponseItem = zod.object({
   "id": zod.number(),
+  "userId": zod.number().nullish(),
   "username": zod.string(),
   "displayName": zod.string(),
   "favoriteColor": zod.string(),
@@ -28,6 +113,7 @@ export const ListProfilesResponseItem = zod.object({
   "imageData": zod.string(),
   "ageGroup": zod.string(),
   "badges": zod.array(zod.string()),
+  "traits": zod.array(zod.string()),
   "skin": zod.string(),
   "banner": zod.string().nullish(),
   "createdAt": zod.string()
@@ -53,7 +139,8 @@ export const CreateProfileBody = zod.object({
   "bio": zod.string().max(createProfileBodyBioMax),
   "imageData": zod.string(),
   "ageGroup": zod.string(),
-  "banner": zod.string().optional()
+  "banner": zod.string().optional(),
+  "traits": zod.array(zod.string()).optional()
 })
 
 
@@ -66,7 +153,7 @@ export const DeleteProfileParams = zod.object({
 
 
 /**
- * @summary Update profile skin, badges, or banner
+ * @summary Update profile
  */
 export const UpdateProfileParams = zod.object({
   "id": zod.coerce.number()
@@ -75,11 +162,19 @@ export const UpdateProfileParams = zod.object({
 export const UpdateProfileBody = zod.object({
   "skin": zod.string().optional(),
   "badges": zod.array(zod.string()).optional(),
-  "banner": zod.string().nullish()
+  "banner": zod.string().nullish(),
+  "username": zod.string().optional(),
+  "displayName": zod.string().optional(),
+  "favoriteColor": zod.string().optional(),
+  "bio": zod.string().optional(),
+  "imageData": zod.string().optional(),
+  "ageGroup": zod.string().optional(),
+  "traits": zod.array(zod.string()).optional()
 })
 
 export const UpdateProfileResponse = zod.object({
   "id": zod.number(),
+  "userId": zod.number().nullish(),
   "username": zod.string(),
   "displayName": zod.string(),
   "favoriteColor": zod.string(),
@@ -87,6 +182,7 @@ export const UpdateProfileResponse = zod.object({
   "imageData": zod.string(),
   "ageGroup": zod.string(),
   "badges": zod.array(zod.string()),
+  "traits": zod.array(zod.string()),
   "skin": zod.string(),
   "banner": zod.string().nullish(),
   "createdAt": zod.string()
@@ -323,6 +419,230 @@ export const CreateCustomSkinBody = zod.object({
  * @summary Delete a custom skin (moderator)
  */
 export const DeleteCustomSkinParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List all maps with pinpoints
+ */
+export const ListMapsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "imageData": zod.string(),
+  "createdAt": zod.string(),
+  "pinpoints": zod.array(zod.object({
+  "id": zod.number(),
+  "mapId": zod.number(),
+  "type": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "imageData": zod.string(),
+  "xPercent": zod.number(),
+  "yPercent": zod.number(),
+  "createdAt": zod.string(),
+  "residents": zod.array(zod.object({
+  "userId": zod.number(),
+  "robloxUsername": zod.string(),
+  "displayName": zod.string(),
+  "description": zod.string()
+}))
+}))
+})
+export const ListMapsResponse = zod.array(ListMapsResponseItem)
+
+
+/**
+ * @summary Create a map (moderator)
+ */
+
+
+
+export const CreateMapBody = zod.object({
+  "name": zod.string().min(1),
+  "imageData": zod.string().optional(),
+  "accessCode": zod.string().optional()
+})
+
+
+/**
+ * @summary Update a map (moderator)
+ */
+export const UpdateMapParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateMapBody = zod.object({
+  "name": zod.string().min(1),
+  "imageData": zod.string().optional(),
+  "accessCode": zod.string().optional()
+})
+
+export const UpdateMapResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "imageData": zod.string(),
+  "createdAt": zod.string(),
+  "pinpoints": zod.array(zod.object({
+  "id": zod.number(),
+  "mapId": zod.number(),
+  "type": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "imageData": zod.string(),
+  "xPercent": zod.number(),
+  "yPercent": zod.number(),
+  "createdAt": zod.string(),
+  "residents": zod.array(zod.object({
+  "userId": zod.number(),
+  "robloxUsername": zod.string(),
+  "displayName": zod.string(),
+  "description": zod.string()
+}))
+}))
+})
+
+
+/**
+ * @summary Delete a map (moderator)
+ */
+export const DeleteMapParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Add a pinpoint to a map (moderator)
+ */
+export const CreatePinpointParams = zod.object({
+  "mapId": zod.coerce.number()
+})
+
+
+
+
+export const CreatePinpointBody = zod.object({
+  "type": zod.string().optional(),
+  "name": zod.string().min(1),
+  "description": zod.string().optional(),
+  "imageData": zod.string().optional(),
+  "xPercent": zod.number().optional(),
+  "yPercent": zod.number().optional(),
+  "accessCode": zod.string().optional()
+})
+
+
+/**
+ * @summary Update a pinpoint (moderator)
+ */
+export const UpdatePinpointParams = zod.object({
+  "mapId": zod.coerce.number(),
+  "pinId": zod.coerce.number()
+})
+
+
+
+
+export const UpdatePinpointBody = zod.object({
+  "type": zod.string().optional(),
+  "name": zod.string().min(1),
+  "description": zod.string().optional(),
+  "imageData": zod.string().optional(),
+  "xPercent": zod.number().optional(),
+  "yPercent": zod.number().optional(),
+  "accessCode": zod.string().optional()
+})
+
+export const UpdatePinpointResponse = zod.object({
+  "id": zod.number(),
+  "mapId": zod.number(),
+  "type": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "imageData": zod.string(),
+  "xPercent": zod.number(),
+  "yPercent": zod.number(),
+  "createdAt": zod.string(),
+  "residents": zod.array(zod.object({
+  "userId": zod.number(),
+  "robloxUsername": zod.string(),
+  "displayName": zod.string(),
+  "description": zod.string()
+}))
+})
+
+
+/**
+ * @summary Delete a pinpoint (moderator)
+ */
+export const DeletePinpointParams = zod.object({
+  "mapId": zod.coerce.number(),
+  "pinId": zod.coerce.number()
+})
+
+
+/**
+ * @summary Live at a pinpoint (requires auth)
+ */
+export const LiveHereParams = zod.object({
+  "mapId": zod.coerce.number(),
+  "pinId": zod.coerce.number()
+})
+
+export const liveHereBodyDescriptionMax = 500;
+
+
+
+export const LiveHereBody = zod.object({
+  "description": zod.string().max(liveHereBodyDescriptionMax).optional()
+})
+
+
+/**
+ * @summary Get current user badge inventory
+ */
+export const ListBadgeInventoryResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "badgeName": zod.string(),
+  "grantedAt": zod.string()
+})
+export const ListBadgeInventoryResponse = zod.array(ListBadgeInventoryResponseItem)
+
+
+/**
+ * @summary Give a badge to a user (moderator)
+ */
+export const GiveBadgeBody = zod.object({
+  "userId": zod.number(),
+  "badgeName": zod.string(),
+  "accessCode": zod.string().optional()
+})
+
+
+/**
+ * @summary Get badge inventory for a specific user (mod panel)
+ */
+export const ListBadgeInventoryForUserParams = zod.object({
+  "userId": zod.coerce.number()
+})
+
+export const ListBadgeInventoryForUserResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "badgeName": zod.string(),
+  "grantedAt": zod.string()
+})
+export const ListBadgeInventoryForUserResponse = zod.array(ListBadgeInventoryForUserResponseItem)
+
+
+/**
+ * @summary Remove a badge from inventory (moderator)
+ */
+export const RemoveBadgeParams = zod.object({
   "id": zod.coerce.number()
 })
 
